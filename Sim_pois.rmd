@@ -1,0 +1,81 @@
+---
+title: "Count Simulation Model"
+output: html_document
+date: "2023-01-23"
+---
+
+$y_{i,t} \sim Poisson(\lambda_{i,t})$
+
+$\lambda_{i,t} = e^{l_{i,t}}$
+
+$l_{i,t} = l_{i,t-1} + trend_{i} + yrRE_{t}$
+
+$l_{i,1} = pltRE{i} + yrRE_{t}$
+
+$trend_{i} \sim \mathcal{N}(\mu_{trend}, \sigma_{trend})$
+
+$plotRE{i} \sim \mathcal{N}(\mu_{plot}, \sigma_{plot})$
+
+$yearRE{i} \sim \mathcal{N}(\mu_{yr}, \sigma_{yr})$
+
+$\mu_{trend},\mu_{plot},\mu_{year} \sim \mathcal{N}(0, 100)$
+
+$\sigma_{trend},\sigma_{plot},\sigma_{year} \sim half-t_{2df}(0,20)$
+
+```{r model}
+model{
+  #likelihood -----------------------------------
+  for(i in 1:N){
+    for(t in 1:Nyears){
+      y[i,t]            ~ dpois(lambda[i,t])
+      
+      log(lambda[i,t]) <- l[i,t] 
+    }
+    for(t in 2:Nyears){
+      l[i,t] <- l[i,t-1] + trend[i] + yr_RE[t]
+    }
+    l[i,1]    <- plot_RE[i] + yr_RE[1] #yr_RE might not be identifiable here
+    
+    trend[i]   ~ dnorm(mu_trend, tau_trend)
+    plot_RE[i] ~ dnorm(mu_plots, tau_plots)
+  }
+  for(t in 1:Nyears){
+    yr_RE[t] ~ dnorm(mu_yr, tau_yr)
+  }
+  
+  #priors ------------------------------------
+  mu_trend ~ dnorm(0,.001)
+  mu_plots ~ dnorm(0,.001)
+  
+  mu_yr    ~ dnorm(0,.001)
+  
+  tau_trend ~ dscaled.gamma(2,20)
+  tau_plots ~ dscaled.gamma(2,20)
+  tau_yr    ~ dscaled.gamma(2,20)
+  
+  #simulate-----------------------------------
+  for(i in 1:NSimPlots){
+    for(t in 1:NSimYrs){
+      ysim[i,t] ~ dpois(lambda_sim[i,t])
+      log(lambda_sim[i,t]) <- l_sim[i,t]
+    }
+    for(t in 2:NSimYrs){
+      l_sim[i,t] <- l_sim[i,t-1] + trend_sim[i] + yr_RE_sim[t] 
+    }
+    l_sim[i,1] <- plot_RE_sim[i] + yr_RE_sim[1]
+    
+    #this version would simulate from the estimated trend and RE for each observed plot
+    # trend_sim[i]   <- trend[i]
+    # plot_RE_sim[i] <- plot_RE[i]
+    
+    #this version would simulate from the estimated population of plots that our observed plots were drawn from
+    trend_sim[i]   ~ dnorm(mu_trend, tau_trend)
+    plot_RE_sim[i] ~ dnorm(mu_plots, tau_plots)
+  }
+  for(t in 1:Nyears){
+    #yr_RE_sim[t] <- yr_RE[t]
+    yr_RE_sim[t] ~ dnorm(mu_yr, tau_yr)
+  }
+}
+
+```
